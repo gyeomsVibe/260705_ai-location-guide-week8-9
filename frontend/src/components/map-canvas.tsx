@@ -12,18 +12,12 @@ type Props = {
 }
 
 export function MapCanvas(props: Props) {
-  // kakao: 메인 맵 파티션, leaflet: 서브 맵 파티션
+  // kakao: 메인 맵 (기본값), leaflet: 서브 맵 (사용자가 직접 선택 시에만 전환)
   const [mapEngineMode, setMapEngineMode] = useState<"kakao" | "leaflet">("kakao")
-  const [hasFallbackOccurred, setHasFallbackOccurred] = useState(false)
-
-  const handleKakaoFallback = () => {
-    setMapEngineMode("leaflet")
-    setHasFallbackOccurred(true)
-  }
 
   return (
     <div className="map-partition-wrapper" style={{ position: "relative", width: "100%", height: "100%" }}>
-      {/* 맵 파티션 선택 스위처 */}
+      {/* 맵 선택 스위처 */}
       <div
         className="map-partition-switcher"
         style={{
@@ -56,7 +50,7 @@ export function MapCanvas(props: Props) {
             color: mapEngineMode === "kakao" ? "#ffffff" : "#94a3b8",
           }}
         >
-          📍 카카오 메인 맵
+          📍 카카오 맵 (기본)
         </button>
         <button
           type="button"
@@ -73,13 +67,13 @@ export function MapCanvas(props: Props) {
             color: mapEngineMode === "leaflet" ? "#ffffff" : "#94a3b8",
           }}
         >
-          🗺️ 오픈 서브 맵 {hasFallbackOccurred ? "(비상 전환됨)" : ""}
+          🗺️ 오픈 서브 맵
         </button>
       </div>
 
-      {/* 파티션 렌더링 */}
+      {/* 파티션 렌더링: 카카오 맵 기본 고정 */}
       {mapEngineMode === "kakao" ? (
-        <KakaoMapCanvas {...props} onFallback={handleKakaoFallback} />
+        <KakaoMapCanvas {...props} />
       ) : (
         <LeafletMapCanvas {...props} />
       )}

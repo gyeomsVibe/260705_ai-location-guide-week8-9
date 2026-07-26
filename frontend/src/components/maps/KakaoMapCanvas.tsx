@@ -7,10 +7,9 @@ type Props = {
   places: Place[]
   selectedId: string | null
   onSelect: (place: Place) => void
-  onFallback?: () => void
 }
 
-export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect, onFallback }: Props) {
+export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
@@ -18,7 +17,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
   const overlayRef = useRef<any>(null)
   const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">("loading")
 
-  // SDK 감지
+  // SDK 감지 (자동 강제 Fallback 제거: 네트워크 지연 시에도 카카오 SDK 준비를 끝까지 기다림)
   useEffect(() => {
     let isMounted = true
 
@@ -32,8 +31,8 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
 
     if (checkKakao()) return
 
-    // 정적 스크립트 로드 완료까지 약 대기 (50ms 단위)
-    let attempts = 60 // 최대 3초 대기
+    // 100ms 간격으로 카카오 SDK 준비될 때까지 계속 체크 (최대 15초 대기)
+    let attempts = 150 
     const interval = setInterval(() => {
       if (checkKakao()) {
         clearInterval(interval)
@@ -41,20 +40,17 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
         attempts--
         if (attempts <= 0) {
           clearInterval(interval)
-          console.warn("[KakaoMapCanvas] 카카오 지도 SDK 객체 탐지 실패 → Fallback 전환")
-          if (isMounted) {
-            setLoadState("failed")
-            if (onFallback) onFallback()
-          }
+          console.warn("[KakaoMapCanvas] 카카오 지도 SDK 로드 실패 또는 네트워크 지연")
+          if (isMounted) setLoadState("failed")
         }
       }
-    }, 50)
+    }, 100)
 
     return () => {
       isMounted = false
       clearInterval(interval)
     }
-  }, [onFallback])
+  }, [])
 
   // 지도 렌더링
   useEffect(() => {
@@ -149,9 +145,8 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
     } catch (e) {
       console.warn("[KakaoMapCanvas] 카카오 지도 렌더링 예외 발생:", e)
       setLoadState("failed")
-      if (onFallback) onFallback()
     }
-  }, [loadState, center, radiusKm, places, selectedId, onSelect, onFallback])
+  }, [loadState, center, radiusKm, places, selectedId, onSelect])
 
   if (loadState === "loading") {
     return (
@@ -165,7 +160,17 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
   }
 
   if (loadState === "failed") {
-    return null
+    return (
+      <div className="map-frame map-frame-status" aria-label="카카오 지도 로드 실패">
+        <div style={{ padding: "3rem", textAlign: "center", color: "#ef4444" }}>
+          <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⚠️</div>
+          <strong>카카오 지도 로드 실패</strong>
+          <p style={{ fontSize: "0.875rem", color: "#94a3b8", marginTop: "0.5rem" }}>
+            네트워크 상태 또는 카카오 API 설정을 확인해 주세요. 우측 상단의 스위치로 서브 맵을 이용하실 수 있습니다.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
