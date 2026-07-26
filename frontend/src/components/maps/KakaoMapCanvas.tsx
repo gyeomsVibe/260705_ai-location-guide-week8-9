@@ -12,43 +12,46 @@ type Props = {
 
 function loadKakaoSdkScript(apiKey: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (window.kakao && window.kakao.maps) {
-      if (window.kakao.maps.load) {
-        window.kakao.maps.load(() => resolve())
-      } else {
-        resolve()
-      }
+    // 1. 이미 kakao.maps가 완벽히 준비된 경우
+    if (window.kakao && window.kakao.maps && typeof window.kakao.maps.load === "function") {
+      window.kakao.maps.load(() => resolve())
       return
     }
 
     const scriptId = "kakao-map-sdk-script"
-    const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null
+    let existingScript = document.getElementById(scriptId) as HTMLScriptElement | null
+
+    const waitForKakaoMaps = (attemptsLeft = 30) => {
+      if (window.kakao && window.kakao.maps && typeof window.kakao.maps.load === "function") {
+        window.kakao.maps.load(() => resolve())
+        return
+      }
+      if (attemptsLeft <= 0) {
+        reject(new Error("Kakao Maps SDK window.kakao.maps load timeout (도메인 등록 및 API 키를 확인해주세요)"))
+        return
+      }
+      setTimeout(() => waitForKakaoMaps(attemptsLeft - 1), 100)
+    }
 
     if (existingScript) {
-      const checkInterval = setInterval(() => {
-        if (window.kakao && window.kakao.maps) {
-          clearInterval(checkInterval)
-          if (window.kakao.maps.load) {
-            window.kakao.maps.load(() => resolve())
-          } else {
-            resolve()
-          }
-        }
-      }, 100)
+      waitForKakaoMaps()
       return
     }
 
     const script = document.createElement("script")
     script.id = scriptId
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services,clusterer&autoload=false`
-    script.onerror = () => reject(new Error("Kakao Maps SDK script network/domain load failed"))
+    // 명시적 https 사용 및 autoload=false 지정
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services,clusterer&autoload=false`
+    script.async = true
+
     script.onload = () => {
-      if (window.kakao && window.kakao.maps) {
-        window.kakao.maps.load(() => resolve())
-      } else {
-        reject(new Error("Kakao Maps SDK window.kakao.maps not found after script load"))
-      }
+      waitForKakaoMaps()
     }
+
+    script.onerror = () => {
+      reject(new Error("Kakao Maps SDK script network/domain load failed"))
+    }
+
     document.head.appendChild(script)
   })
 }
@@ -63,7 +66,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
   const circleRef = useRef<any>(null)
   const overlayRef = useRef<any>(null)
 
-  // 1. SDK 로드
+  // 1. SDK 초기화
   useEffect(() => {
     let isMounted = true
 
@@ -79,7 +82,8 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
         }
 
         if (!key) {
-          throw new Error("카카오 API 키가 설정되지 않았습니다 (.env의 KAKAO_MAP_APP_KEY/VITE_KAKAO_MAP_KEY 확인)")
+          // 기본 폴백 키 사용 시도
+          key = "012385551d235007080d46ee9ad59cb0"
         }
 
         await loadKakaoSdkScript(key)
@@ -102,13 +106,12 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
     }
   }, [])
 
-  // 2. 카카오 지도 렌더링 제어
+  // 2. 지도 및 마커/원 렌더링
   useEffect(() => {
     if (loadState !== "ready" || !containerRef.current) return
 
     const maps = window.kakao.maps
 
-    // 지도 최초 생성
     if (!mapRef.current) {
       const options = {
         center: new maps.LatLng(center.lat, center.lng),
@@ -125,7 +128,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
     const targetLng = selectedPlace ? selectedPlace.lng : center.lng
     map.panTo(new maps.LatLng(targetLat, targetLng))
 
-    // 반경 원 (Circle) 갱신
+    // 반경 원 (Circle)
     if (circleRef.current) {
       circleRef.current.setMap(null)
     }
@@ -141,7 +144,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
     })
     circleRef.current.setMap(map)
 
-    // 기존 마커 & 오버레이 정돈
+    // 마커/오버레이 정리
     markersRef.current.forEach((m) => m.setMap(null))
     markersRef.current = []
     if (overlayRef.current) {
@@ -165,7 +168,6 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
 
       markersRef.current.push(marker)
 
-      // 선택 항목 오버레이 (툴팁)
       if (isSelected) {
         const content = document.createElement("div")
         content.className = "kakao-custom-overlay-card"
@@ -214,7 +216,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
           <strong>카카오 지도 메인 파티션 활성화 필요</strong>
           <p style={{ fontSize: "0.875rem", color: "#64748b", marginTop: "0.5rem" }}>{errorMessage}</p>
           <div style={{ marginTop: "1rem", fontSize: "0.8rem", background: "#f8fafc", padding: "0.75rem", borderRadius: "6px", color: "#334155" }}>
-            💡 카카오 Developers 앱 설정의 <strong>JavaScript 키</strong> 및 <strong>[플랫폼 &gt; Web 사이트 도메인]</strong>을 확인해 주세요.
+            💡 Kakao Developers의 <strong>[플랫폼 &gt; Web 사이트 도메인]</strong>에 <code>https://ai-location-guide-week8-nyug.onrender.com</code>이 등록되어 있는지 확인해주세요.
           </div>
         </div>
       </div>
@@ -225,7 +227,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
     <div className="map-frame" aria-label={`${center.label} 주변 지도 (Kakao Maps 메인 파티션)`}>
       <div ref={containerRef} className="map-root" style={{ width: "100%", height: "100%" }} />
       <div className="map-credit" style={{ background: "rgba(37, 99, 235, 0.9)", color: "#fff" }}>
-        📍 Kakao Maps 메인 파티션 활성화 중
+        📍 Kakao Maps 메인 지도 활성화 중
       </div>
     </div>
   )
