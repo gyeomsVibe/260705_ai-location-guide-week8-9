@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { fetchConfig } from "../../lib/api"
 import type { Coordinates, Place } from "../../types"
 
 type Props = {
@@ -11,106 +10,49 @@ type Props = {
   onFallback?: () => void
 }
 
-/**
- * Kakao Maps SDK 동적 로더
- *
- * 버그 수정 이력 (2026-07-26):
- *  - index.html의 하드코딩 <script> 제거와 함께 이 함수도 재작성
- *  - 기존 코드: DOM에 이미 있는 script에 onload를 나중에 붙이면 이미 발화된 이벤트라 절대 실행 안 됨
- *  - 새 구현:
- *    1. kakao.maps 이미 준비 → 즉시 resolve
- *    2. script 없음 → 생성 직후 onload/onerror 등록 (타이밍 보장)
- *    3. script 있지만 로딩 중 → 폴링 대기 (최대 6초)
- */
-function initKakaoMapsSdk(apiKey: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // Case 1: SDK 이미 준비됨 → 즉시 resolve
-    if (window.kakao?.maps?.load) {
-      window.kakao.maps.load(() => resolve())
-      return
-    }
-
-    const scriptId = "kakao-map-sdk"
-    const existing = document.getElementById(scriptId) as HTMLScriptElement | null
-
-    if (!existing) {
-      // Case 2: 스크립트 없음 → 생성 직후 onload/onerror 등록
-      const script = document.createElement("script")
-      script.id = scriptId
-      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services,clusterer&autoload=false`
-      script.async = true
-      script.onload = () => {
-        if (window.kakao?.maps?.load) {
-          window.kakao.maps.load(() => resolve())
-        } else {
-          reject(new Error("Kakao Maps SDK onload fired but kakao.maps unavailable"))
-        }
-      }
-      script.onerror = () =>
-        reject(
-          new Error(
-            "Kakao Maps SDK script load failed — check domain registration at https://developers.kakao.com",
-          ),
-        )
-      document.head.appendChild(script)
-    } else {
-      // Case 3: 스크립트는 DOM에 있지만 아직 로딩 중 → 폴링 대기
-      let attempts = 60 // 100ms × 60 = 최대 6초
-      const poll = () => {
-        if (window.kakao?.maps?.load) {
-          window.kakao.maps.load(() => resolve())
-          return
-        }
-        if (attempts-- <= 0) {
-          reject(new Error("Kakao Maps SDK load timeout after 6s"))
-          return
-        }
-        setTimeout(poll, 100)
-      }
-      poll()
-    }
-  })
-}
-
 export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect, onFallback }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">("loading")
-
   const mapRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
   const circleRef = useRef<any>(null)
   const overlayRef = useRef<any>(null)
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">("loading")
 
+  // SDK 감지
   useEffect(() => {
     let isMounted = true
 
-    async function prepareSdk() {
-      try {
-        // 키 우선순위: 빌드 시 주입 → 런타임 window 전역 → /api/config 백엔드 → 하드코딩 fallback
-        let key = (import.meta.env.VITE_KAKAO_MAP_KEY || window.KAKAO_MAP_KEY || "").trim()
-        if (!key) {
-          const cfg = await fetchConfig()
-          if (cfg.kakaoMapKey) key = cfg.kakaoMapKey.trim()
-        }
-        if (!key) {
-          key = "012385551d235007080d46ee9ad59cb0"
-        }
-
-        await initKakaoMapsSdk(key)
+    const checkKakao = () => {
+      if (window.kakao && window.kakao.maps && window.kakao.maps.Map) {
         if (isMounted) setLoadState("ready")
-      } catch (err) {
-        console.warn("[KakaoMapCanvas] Kakao SDK 로드 실패 → Leaflet fallback 전환:", err)
-        if (isMounted) {
-          setLoadState("failed")
-          if (onFallback) onFallback()
-        }
+        return true
       }
+      return false
     }
 
-    prepareSdk()
+    if (checkKakao()) return
+
+    // 정적 스크립트 로드 완료까지 약 대기 (50ms 단위)
+    let attempts = 60 // 최대 3초 대기
+    const interval = setInterval(() => {
+      if (checkKakao()) {
+        clearInterval(interval)
+      } else {
+        attempts--
+        if (attempts <= 0) {
+          clearInterval(interval)
+          console.warn("[KakaoMapCanvas] 카카오 지도 SDK 객체 탐지 실패 → Fallback 전환")
+          if (isMounted) {
+            setLoadState("failed")
+            if (onFallback) onFallback()
+          }
+        }
+      }
+    }, 50)
 
     return () => {
       isMounted = false
+      clearInterval(interval)
     }
   }, [onFallback])
 
@@ -205,7 +147,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
         }
       })
     } catch (e) {
-      console.warn("[KakaoMapCanvas] 카카오 지도 객체 생성 예외 발생 → Fallback 전환:", e)
+      console.warn("[KakaoMapCanvas] 카카오 지도 렌더링 예외 발생:", e)
       setLoadState("failed")
       if (onFallback) onFallback()
     }
