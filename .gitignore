@@ -1,5 +1,7 @@
 # Node.js 의존성 폴더 (npm install 로 언제든 다시 만들 수 있어 올리지 않습니다)
 node_modules/
+frontend/dist/
+*.tsbuildinfo
 
 # 로그 파일
 npm-debug.log*
@@ -11,10 +13,7 @@ npm-debug.log*
 # OS 생성 파일
 Thumbs.db
 .DS_Store
-.vibe-diagnosis/config.json
 .vibe-clinic/config.json
+.vibe-clinic/treatment-ledger.json
+*.bak
 *.zip
-
-
-# Vibe Diagnosis 실행 시 생성되는 로컬 포트 상태
-.vibe-diagnosis/active_port.json

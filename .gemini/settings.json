@@ -1,16 +1,9 @@
 {
   "mcpServers": {
-    "vibe-diagnosis": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "vibe-diagnosis-mcp"
-      ]
-    },
     "vibe-clinic": {
       "command": "C:\\Program Files\\nodejs\\node.exe",
       "args": [
-        "D:\\D_Workspace_NB\\-google-workspace\\-antigravity-workspace\\260709_vibe-clinic\\mcp-server\\index.js"
+        "D:/D_Workspace_NB/-google-workspace/-antigravity-workspace/260709_vibe-clinic/backend/mcp-server/index.js"
       ]
     }
   }

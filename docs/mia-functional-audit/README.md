@@ -19,8 +19,8 @@
 
 ```text
 local_runtime_verified = true
-public_runtime_verified = false
-release = blocked
+public_runtime_verified = true
+release = verified
 ```
 
 공개 배포 후 동일한 전수 브라우저 검사를 통과하면 위 판정을 갱신합니다.

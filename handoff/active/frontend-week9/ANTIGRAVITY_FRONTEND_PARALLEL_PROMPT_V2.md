@@ -183,7 +183,7 @@
 - 저장소: `gyeomsVibe/260705_ai-location-guide-week8-9`
 - 브랜치: `main`
 - 설계 기준 커밋: `949a115`
-- 로컬 경로: `D:\D_Workspace_NB\-google-workspace\-antigravity-workspace\260705_ai-location-guide-week8-9`
+- 로컬 경로: `D:\D_Workspace_NB\-agentic-ai-workspace\-antigravity-workspace\260705_ai-location-guide-week8-9`
 - Antigravity 소유: `frontend/public/index.html`
 - Codex 소유: `backend/**`
 - 기존 백엔드 API: `/api/cafes`

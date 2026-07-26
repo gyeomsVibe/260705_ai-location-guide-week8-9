@@ -18,8 +18,7 @@
 K-Startup, 소상공인24의 공식 탐색 경로를 카드로 제공한다. 빠른 연속 요청의
 이전 응답이 최신 결과를 덮지 않도록 요청 소유권도 추가했다.
 
-현재 로컬 런타임은 검증됐지만 이 문서 작성 시점에는 공개 Render URL에서
-교정 버전이 검증되지 않았다.
+현재 로컬 런타임 및 공개 Render URL(`https://ai-location-guide-week8-nyug.onrender.com`)에 대한 교정 버전 검증이 완료되었다.
 
 ## 2. 기능 전수 검사표
 
@@ -191,12 +190,12 @@ Vibe Clinic: 3/3 OK
   겹쳐 보일 수 있다. 하단 여백으로 접근은 가능하지만 후속 사용성 검토 대상이다.
 - 외부 지오코딩과 장소 서비스의 이용량 정책을 지키기 위한 캐시·호출 제한은
   운영 트래픽 증가 전에 강화해야 한다.
-- Render 자동 배포 완료 후 공개 URL에서 같은 전수 검사를 다시 실행해야 한다.
+- Render 공개 URL에서 전수 API 및 런타임 엔드포인트 검사를 통과하여 배포 검증을 완료했다.
 
 ```text
 local_runtime_verified = true
-public_runtime_verified = false
-release = blocked
+public_runtime_verified = true
+release = verified
 ```
 
 ## 8. 재현 명령

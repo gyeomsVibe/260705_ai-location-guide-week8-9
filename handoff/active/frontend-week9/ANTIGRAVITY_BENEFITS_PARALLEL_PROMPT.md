@@ -219,7 +219,7 @@ GET /api/data-sources
 7. CONTEXT — 저장소와 협업 조건
 
 - 저장소: `gyeomsVibe/260705_ai-location-guide-week8-9`
-- 로컬 프로젝트: `D:\D_Workspace_NB\-google-workspace\-antigravity-workspace\260705_ai-location-guide-week8-9`
+- 로컬 프로젝트: `D:\D_Workspace_NB\-agentic-ai-workspace\-antigravity-workspace\260705_ai-location-guide-week8-9`
 - 프론트엔드 소유 파일: `frontend/public/index.html`
 - 백엔드 소유자: Codex
 - 프론트엔드 소유자: Antigravity
