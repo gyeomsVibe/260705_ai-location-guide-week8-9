@@ -17,30 +17,38 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
   const overlayRef = useRef<any>(null)
   const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">("loading")
 
-  // SDK 감지 (자동 강제 Fallback 제거: 네트워크 지연 시에도 카카오 SDK 준비를 끝까지 기다림)
+  // SDK 초기화 (autoload=false 지원: kakao.maps.load 콜백 필수 호출)
   useEffect(() => {
     let isMounted = true
 
-    const checkKakao = () => {
-      if (window.kakao && window.kakao.maps && window.kakao.maps.Map) {
-        if (isMounted) setLoadState("ready")
-        return true
+    const initKakao = () => {
+      if (window.kakao && window.kakao.maps) {
+        if (typeof window.kakao.maps.load === "function") {
+          window.kakao.maps.load(() => {
+            if (isMounted) setLoadState("ready")
+          })
+          return true
+        }
+        if (window.kakao.maps.Map) {
+          if (isMounted) setLoadState("ready")
+          return true
+        }
       }
       return false
     }
 
-    if (checkKakao()) return
+    if (initKakao()) return
 
-    // 100ms 간격으로 카카오 SDK 준비될 때까지 계속 체크 (최대 15초 대기)
-    let attempts = 150 
+    // 정적 스크립트 로드 완료 시점까지 폴링 체크 (최대 10초 대기)
+    let attempts = 100
     const interval = setInterval(() => {
-      if (checkKakao()) {
+      if (initKakao()) {
         clearInterval(interval)
       } else {
         attempts--
         if (attempts <= 0) {
           clearInterval(interval)
-          console.warn("[KakaoMapCanvas] 카카오 지도 SDK 로드 실패 또는 네트워크 지연")
+          console.warn("[KakaoMapCanvas] 카카오 SDK 로드 실패")
           if (isMounted) setLoadState("failed")
         }
       }
@@ -166,7 +174,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
           <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⚠️</div>
           <strong>카카오 지도 로드 실패</strong>
           <p style={{ fontSize: "0.875rem", color: "#94a3b8", marginTop: "0.5rem" }}>
-            네트워크 상태 또는 카카오 API 설정을 확인해 주세요. 우측 상단의 스위치로 서브 맵을 이용하실 수 있습니다.
+            네트워크 연결 또는 카카오 개발자 콘솔 설정을 확인해 주세요.
           </p>
         </div>
       </div>
@@ -174,7 +182,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect 
   }
 
   return (
-    <div className="map-frame" aria-label={`${center.label} 주변 지도 (Kakao Maps 메인 파티션)`}>
+    <div className="map-frame" aria-label={`${center.label} 주변 지도`}>
       <div ref={containerRef} className="map-root" style={{ width: "100%", height: "100%" }} />
       <div className="map-credit" style={{ background: "rgba(37, 99, 235, 0.9)", color: "#fff" }}>
         📍 Kakao Maps
