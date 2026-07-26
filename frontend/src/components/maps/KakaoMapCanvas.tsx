@@ -11,49 +11,64 @@ type Props = {
   onFallback?: () => void
 }
 
+/**
+ * Kakao Maps SDK 동적 로더
+ *
+ * 버그 수정 이력 (2026-07-26):
+ *  - index.html의 하드코딩 <script> 제거와 함께 이 함수도 재작성
+ *  - 기존 코드: DOM에 이미 있는 script에 onload를 나중에 붙이면 이미 발화된 이벤트라 절대 실행 안 됨
+ *  - 새 구현:
+ *    1. kakao.maps 이미 준비 → 즉시 resolve
+ *    2. script 없음 → 생성 직후 onload/onerror 등록 (타이밍 보장)
+ *    3. script 있지만 로딩 중 → 폴링 대기 (최대 6초)
+ */
 function initKakaoMapsSdk(apiKey: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    // 1. 이미 kakao.maps가 완벽히 로드되어 준비된 경우
-    if (window.kakao && window.kakao.maps && typeof window.kakao.maps.load === "function") {
-      try {
-        window.kakao.maps.load(() => resolve())
-        return
-      } catch (e) {
-        // 계속 진행
-      }
-    }
-
-    const waitForKakao = (attemptsLeft = 20) => {
-      if (window.kakao && window.kakao.maps && typeof window.kakao.maps.load === "function") {
-        try {
-          window.kakao.maps.load(() => resolve())
-          return
-        } catch (e) {
-          reject(e)
-          return
-        }
-      }
-      if (attemptsLeft <= 0) {
-        reject(new Error("Kakao Maps SDK load timeout"))
-        return
-      }
-      setTimeout(() => waitForKakao(attemptsLeft - 1), 100)
+    // Case 1: SDK 이미 준비됨 → 즉시 resolve
+    if (window.kakao?.maps?.load) {
+      window.kakao.maps.load(() => resolve())
+      return
     }
 
     const scriptId = "kakao-map-sdk"
-    let script = document.getElementById(scriptId) as HTMLScriptElement | null
+    const existing = document.getElementById(scriptId) as HTMLScriptElement | null
 
-    if (!script) {
-      script = document.createElement("script")
+    if (!existing) {
+      // Case 2: 스크립트 없음 → 생성 직후 onload/onerror 등록
+      const script = document.createElement("script")
       script.id = scriptId
       script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services,clusterer&autoload=false`
       script.async = true
+      script.onload = () => {
+        if (window.kakao?.maps?.load) {
+          window.kakao.maps.load(() => resolve())
+        } else {
+          reject(new Error("Kakao Maps SDK onload fired but kakao.maps unavailable"))
+        }
+      }
+      script.onerror = () =>
+        reject(
+          new Error(
+            "Kakao Maps SDK script load failed — check domain registration at https://developers.kakao.com",
+          ),
+        )
       document.head.appendChild(script)
+    } else {
+      // Case 3: 스크립트는 DOM에 있지만 아직 로딩 중 → 폴링 대기
+      let attempts = 60 // 100ms × 60 = 최대 6초
+      const poll = () => {
+        if (window.kakao?.maps?.load) {
+          window.kakao.maps.load(() => resolve())
+          return
+        }
+        if (attempts-- <= 0) {
+          reject(new Error("Kakao Maps SDK load timeout after 6s"))
+          return
+        }
+        setTimeout(poll, 100)
+      }
+      poll()
     }
-
-    script.onload = () => waitForKakao()
-    script.onerror = () => reject(new Error("Kakao Maps SDK script load error"))
-    waitForKakao()
   })
 }
 
@@ -71,6 +86,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
 
     async function prepareSdk() {
       try {
+        // 키 우선순위: 빌드 시 주입 → 런타임 window 전역 → /api/config 백엔드 → 하드코딩 fallback
         let key = (import.meta.env.VITE_KAKAO_MAP_KEY || window.KAKAO_MAP_KEY || "").trim()
         if (!key) {
           const cfg = await fetchConfig()
@@ -83,7 +99,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
         await initKakaoMapsSdk(key)
         if (isMounted) setLoadState("ready")
       } catch (err) {
-        console.warn("[KakaoMapCanvas] Kakao SDK 로드 실패 -> Leaflet 서브 맵으로 자동 전환합니다:", err)
+        console.warn("[KakaoMapCanvas] Kakao SDK 로드 실패 → Leaflet fallback 전환:", err)
         if (isMounted) {
           setLoadState("failed")
           if (onFallback) onFallback()
@@ -189,7 +205,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
         }
       })
     } catch (e) {
-      console.warn("[KakaoMapCanvas] 카카오 지도 객체 생성 예외 발생 -> Fallback 전환:", e)
+      console.warn("[KakaoMapCanvas] 카카오 지도 객체 생성 예외 발생 → Fallback 전환:", e)
       setLoadState("failed")
       if (onFallback) onFallback()
     }
@@ -214,7 +230,7 @@ export function KakaoMapCanvas({ center, radiusKm, places, selectedId, onSelect,
     <div className="map-frame" aria-label={`${center.label} 주변 지도 (Kakao Maps 메인 파티션)`}>
       <div ref={containerRef} className="map-root" style={{ width: "100%", height: "100%" }} />
       <div className="map-credit" style={{ background: "rgba(37, 99, 235, 0.9)", color: "#fff" }}>
-        📍 Kakao Maps 메인 지도 활성화 중
+        📍 Kakao Maps
       </div>
     </div>
   )
