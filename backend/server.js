@@ -60,6 +60,15 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.get("/api/config", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const kakaoKey = process.env.KAKAO_MAP_APP_KEY || process.env.VITE_KAKAO_MAP_KEY || "";
+  return res.status(200).json({
+    kakaoMapKeyConfigured: Boolean(kakaoKey),
+    kakaoMapKey: kakaoKey ? kakaoKey.trim() : "",
+  });
+});
+
 app.get("/api/cafes", async (req, res) => {
   const serviceKey = process.env.SEMAS_STORE_API_KEY;
   res.setHeader("Cache-Control", "no-store");

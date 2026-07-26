@@ -6,8 +6,12 @@ services:
     runtime: node          # Node.js 앱
     plan: free             # 무료 요금제 (신용카드 불필요)
     region: singapore      # 한국에서 가장 가까운 무료 리전
-    buildCommand: npm ci --prefix backend && npm ci --prefix frontend && npm run build --prefix frontend
+    buildCommand: npm ci --prefix backend && npm ci --prefix frontend && VITE_KAKAO_MAP_KEY=012385551d235007080d46ee9ad59cb0 npm run build --prefix frontend
     startCommand: cd backend && npm start     # 서버 실행 (node server.js)
     envVars:
       - key: NODE_VERSION
         value: "20"        # Node.js 버전 고정
+      - key: VITE_KAKAO_MAP_KEY
+        value: "012385551d235007080d46ee9ad59cb0"
+      - key: KAKAO_MAP_APP_KEY
+        value: "012385551d235007080d46ee9ad59cb0"

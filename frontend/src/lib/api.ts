@@ -55,3 +55,11 @@ export function fetchDataSources(signal?: AbortSignal) {
     signal,
   )
 }
+
+export function fetchConfig(signal?: AbortSignal) {
+  return getJson<{ kakaoMapKeyConfigured: boolean; kakaoMapKey: string }>("/api/config", signal).catch(() => ({
+    kakaoMapKeyConfigured: false,
+    kakaoMapKey: "",
+  }))
+}
+

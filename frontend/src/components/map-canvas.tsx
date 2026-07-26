@@ -1,31 +1,7 @@
-import { useEffect } from "react"
-import { Circle, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet"
-import L from "leaflet"
+import { useState } from "react"
+import { KakaoMapCanvas } from "./maps/KakaoMapCanvas"
+import { LeafletMapCanvas } from "./maps/LeafletMapCanvas"
 import type { Coordinates, Place } from "../types"
-
-const markerIcon = L.divIcon({
-  className: "place-marker",
-  html: '<span aria-hidden="true"></span>',
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-})
-
-const selectedIcon = L.divIcon({
-  className: "place-marker place-marker-selected",
-  html: '<span aria-hidden="true"></span>',
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
-})
-
-function MapController({ center, selected }: { center: Coordinates; selected?: Place }) {
-  const map = useMap()
-  useEffect(() => {
-    map.flyTo(selected ? [selected.lat, selected.lng] : [center.lat, center.lng], selected ? 16 : 14, {
-      duration: 0.55,
-    })
-  }, [center, map, selected])
-  return null
-}
 
 type Props = {
   center: Coordinates
@@ -35,36 +11,72 @@ type Props = {
   onSelect: (place: Place) => void
 }
 
-export function MapCanvas({ center, radiusKm, places, selectedId, onSelect }: Props) {
-  const selected = places.find((place) => place.id === selectedId)
+export function MapCanvas(props: Props) {
+  // kakao: 메인 맵 파티션, leaflet: 서브 맵 파티션
+  const [mapEngineMode, setMapEngineMode] = useState<"kakao" | "leaflet">("kakao")
+
   return (
-    <div className="map-frame" aria-label={`${center.label} 주변 지도`}>
-      <MapContainer center={[center.lat, center.lng]} zoom={14} zoomControl className="map-root">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Circle
-          center={[center.lat, center.lng]}
-          radius={radiusKm * 1000}
-          pathOptions={{ color: "#2d6b52", fillColor: "#8db9a4", fillOpacity: 0.08, weight: 2 }}
-        />
-        {places.map((place) => (
-          <Marker
-            key={place.id}
-            position={[place.lat, place.lng]}
-            icon={selectedId === place.id ? selectedIcon : markerIcon}
-            eventHandlers={{ click: () => onSelect(place) }}
-          >
-            <Popup>
-              <strong>{place.name}</strong><br />
-              {place.distanceKm.toFixed(1)}km · {place.address}
-            </Popup>
-          </Marker>
-        ))}
-        <MapController center={center} selected={selected} />
-      </MapContainer>
-      <div className="map-credit">키 없이 여는 지도 · 장소 데이터 OSM</div>
+    <div className="map-partition-wrapper" style={{ position: "relative", width: "100%", height: "100%" }}>
+      {/* 맵 파티션 선택 컨트롤러 */}
+      <div
+        className="map-partition-switcher"
+        style={{
+          position: "absolute",
+          top: "12px",
+          right: "12px",
+          zIndex: 1000,
+          display: "flex",
+          gap: "4px",
+          background: "rgba(15, 23, 42, 0.85)",
+          padding: "4px",
+          borderRadius: "8px",
+          backdropFilter: "blur(8px)",
+          border: "1px solid rgba(255, 255, 255, 0.15)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setMapEngineMode("kakao")}
+          style={{
+            padding: "6px 12px",
+            fontSize: "12px",
+            fontWeight: 600,
+            borderRadius: "6px",
+            border: "none",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            background: mapEngineMode === "kakao" ? "#2563eb" : "transparent",
+            color: mapEngineMode === "kakao" ? "#ffffff" : "#94a3b8",
+          }}
+        >
+          📍 카카오 메인 맵
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapEngineMode("leaflet")}
+          style={{
+            padding: "6px 12px",
+            fontSize: "12px",
+            fontWeight: 600,
+            borderRadius: "6px",
+            border: "none",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            background: mapEngineMode === "leaflet" ? "#059669" : "transparent",
+            color: mapEngineMode === "leaflet" ? "#ffffff" : "#94a3b8",
+          }}
+        >
+          🗺️ 오픈 서브 맵
+        </button>
+      </div>
+
+      {/* 파티션 격리 마운트 */}
+      {mapEngineMode === "kakao" ? (
+        <KakaoMapCanvas {...props} />
+      ) : (
+        <LeafletMapCanvas {...props} />
+      )}
     </div>
   )
 }
